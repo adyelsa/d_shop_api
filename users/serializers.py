@@ -1,27 +1,35 @@
-from django.contrib.auth.models import User
 from rest_framework import serializers
+from django.contrib.auth import authenticate
+from .models import User
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
-        fields = ["username", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
+        fields = ("email", "password", "phone_number")
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            password=validated_data["password"],
-            is_active=False
-        )
+        password = validated_data.pop("password")
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
         return user
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField()
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
 
+    def validate(self, attrs):
+        email = attrs.get("email")
+        password = attrs.get("password")
 
-class ConfirmSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    code = serializers.CharField(max_length=6)
+        user = authenticate(username=email, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Неверный email или пароль")
+
+        attrs["user"] = user
+        return attrs
