@@ -1,10 +1,10 @@
 
-
 from django.db.models import Avg, Count
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 
+from .permissions import IsModerator
 from .models import Category, Product, Review
 from .serializers import (
     CategorySerializer,
@@ -24,6 +24,7 @@ def category_list(request):
     serializer = CategorySerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     serializer.save()
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -44,6 +45,7 @@ def category_detail(request, id):
         serializer = CategorySerializer(category, data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         data = serializer.data
         data["products_count"] = category.products.count()
@@ -60,14 +62,16 @@ def product_list(request):
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
 
-    serializer = ProductSerializer(data=request.data)
+    serializer = ProductSerializer(data=request.data, context={"request": request})
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     serializer.save()
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsModerator])
 def product_detail(request, id):
     try:
         product = Product.objects.get(id=id)
@@ -75,13 +79,14 @@ def product_detail(request, id):
         return Response({"detail": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
-        serializer = ProductSerializer(product)
+        serializer = ProductSerializer(product, context={"request": request})
         return Response(serializer.data)
 
     if request.method == "PUT":
-        serializer = ProductSerializer(product, data=request.data)
+        serializer = ProductSerializer(product, data=request.data, context={"request": request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         return Response(serializer.data)
 
@@ -109,6 +114,7 @@ def review_list(request):
     serializer = ReviewSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     serializer.save()
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -128,11 +134,13 @@ def review_detail(request, id):
         serializer = ReviewSerializer(review, data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
         return Response(serializer.data)
 
     review.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 
 

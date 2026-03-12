@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Category, Product, Review
+from common.validators import validate_user_age
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -24,6 +25,27 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ["id", "title", "description", "price", "category"]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+
+        if request and request.method == "POST":
+            token = request.auth
+            birthdate = None
+
+            if token:
+                birthdate = token.get("birthdate")
+
+            if not birthdate:
+                raise serializers.ValidationError(
+                    "Укажите дату рождения, чтобы создать продукт."
+                )
+
+            from datetime import datetime
+            birthdate = datetime.strptime(birthdate, "%Y-%m-%d").date()
+            validate_user_age(birthdate)
+
+        return attrs
 
     def validate_title(self, value):
         if value is None or not str(value).strip():
